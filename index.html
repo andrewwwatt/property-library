@@ -325,7 +325,16 @@ function buildAlerts() {
   });
 
   alerts.sort((a,b) => new Date(b.date) - new Date(a.date));
-  document.getElementById('alerts').innerHTML = alerts.slice(0, 10).map(a => `
+  // Show a mix: top 2 of each type so all alert categories are visible
+  const byType = {};
+  alerts.forEach(a => { byType[a.type] = byType[a.type] || []; byType[a.type].push(a); });
+  const chosen = [];
+  Object.keys(byType).forEach(t => {
+    const group = byType[t].slice(0, 2);
+    group.forEach(a => chosen.push(a));
+  });
+  chosen.sort((a,b) => new Date(b.date) - new Date(a.date));
+  document.getElementById('alerts').innerHTML = chosen.slice(0, 10).map(a => `
     <div class="alert-item"><span class="alert-badge ${a.badgeClass}">${a.badge}</span>${a.msg}<span class="alert-date">${fmtDate(a.date)}</span></div>
   `).join('') || '<p style="color:var(--muted);">No recent alerts</p>';
 }
