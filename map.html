@@ -133,6 +133,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     </select></div>
   <div class="fgroup"><label>Search</label>
     <input type="text" id="fSearch" placeholder="Address, tag, notes…" oninput="applyFilters()" style="width:150px"></div>
+  <button onclick="resetFilters()" style="padding:7px 14px;border:1px solid var(--border);border-radius:6px;font-size:0.82rem;background:white;cursor:pointer;color:var(--muted);margin-left:auto;align-self:flex-end;">✕ Reset filters</button>
   <div class="legend">
     <span><span class="dot" style="background:#dc3545"></span>For Sale</span>
     <span><span class="dot" style="background:#087990"></span>To Rent</span>
@@ -257,6 +258,14 @@ function saveIntel(id){
 }
 
 function q(id){ var v = document.getElementById(id).value; return v === '' ? null : v; }
+
+function resetFilters(){
+  ['fOccupant','fMarketing','fLastSold','fPrice','fType','fBeds','fContact','fAgent','fCurAgent','fTom','fProp'].forEach(function(id){
+    document.getElementById(id).value = '';
+  });
+  document.getElementById('fSearch').value = '';
+  applyFilters();
+}
 
 function applyFilters(){
   var occ = q('fOccupant'), mkt = q('fMarketing'), ls = q('fLastSold'), pr = q('fPrice'),

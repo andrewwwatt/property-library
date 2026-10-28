@@ -153,6 +153,7 @@ tr.clickable { cursor: pointer; }
       <select class="filter-select" id="filterAgent"><option value="">All agents</option></select>
       <select class="filter-select" id="filterCurAgent"><option value="">All current agents</option></select>
       <select class="filter-select" id="filterTag"><option value="">All tags</option></select>
+      <button class="btn btn-outline btn-sm" onclick="resetListFilters()">✕ Reset filters</button>
       <span class="result-count" id="resultCount"></span>
     </div>
     <div class="table-wrap">
@@ -390,6 +391,13 @@ function setupSearch() {
     document.getElementById(id).addEventListener('input', renderTable);
     if (document.getElementById(id).tagName === 'SELECT') document.getElementById(id).addEventListener('change', renderTable);
   });
+}
+
+function resetListFilters() {
+  ['searchInput','filterType','filterBeds','filterOccupant','filterMarketing','filterPropensity','filterAgent','filterCurAgent','filterTag'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  renderTable();
 }
 
 function setupSort() {
