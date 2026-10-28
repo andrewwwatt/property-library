@@ -399,6 +399,7 @@ document.getElementById('overlay').addEventListener('click', closeDetail);
 function setupNav() {
   document.querySelectorAll('.nav a').forEach(link => {
     link.addEventListener('click', (e) => {
+      if (!link.dataset.page) return; // real link (e.g. map.html) — let it navigate
       e.preventDefault();
       document.querySelectorAll('.nav a').forEach(l => l.classList.remove('active'));
       link.classList.add('active');
