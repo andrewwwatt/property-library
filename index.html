@@ -34,7 +34,12 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .nav a:hover, .nav a.active { color: var(--primary); border-bottom-color: var(--primary); }
 
 /* Dashboard */
-.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin: 24px 0; }
+.section-head { display: flex; align-items: baseline; gap: 12px; margin: 28px 0 4px; }
+.section-head:first-child { margin-top: 0; }
+.section-title { font-size: 1.1rem; font-weight: 700; color: var(--text); margin: 0; }
+.section-sub { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+.card-footer-note { padding: 10px 20px; font-size: 0.72rem; color: var(--muted); border-top: 1px solid var(--border); }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin: 16px 0; }
 .stat-card { background: white; border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow); }
 .stat-card .label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin-bottom: 4px; }
 .stat-card .value { font-size: 1.5rem; font-weight: 700; }
@@ -53,6 +58,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .alert-badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; margin-right: 8px; }
 .alert-badge.sale { background: #e7f1ff; color: var(--primary); }
 .alert-badge.listing { background: #d1e7dd; color: var(--success); }
+.alert-badge.rental { background: #cff4fc; color: #087990; }
 .alert-badge.valuation { background: #fff3cd; color: #856404; }
 .alert-badge.contact { background: #f8d7da; color: var(--danger); }
 .alert-date { color: var(--muted); font-size: 0.75rem; margin-left: auto; }
@@ -125,11 +131,27 @@ tr.clickable { cursor: pointer; }
 
 <div class="container">
 
-  <!-- DASHBOARD -->
+  <!-- AREA SNAPSHOT -->
   <div class="page-section active" id="page-dashboard">
+    <div class="section-head"><h2 class="section-title">Area Snapshot</h2><span class="section-sub">Sea Point · October 2026</span></div>
     <div class="stats" id="stats"></div>
 
+    <!-- AREA TRENDS -->
+    <div class="section-head" style="margin-top:28px;"><h2 class="section-title">Area Trends</h2><span class="section-sub">Sales volume, values & R/m² — last 5 years</span></div>
     <div class="grid-2">
+      <div class="card">
+        <div class="card-header">📈 Number of sales & median price</div>
+        <div class="card-body"><canvas id="chartSales" height="260"></canvas></div>
+        <div class="card-footer-note">Stacked bars: sales by ownership type · Lines: median sale price</div>
+      </div>
+      <div class="card">
+        <div class="card-header">💰 Gross transaction value & R/m²</div>
+        <div class="card-body"><canvas id="chartGross" height="260"></canvas></div>
+        <div class="card-footer-note">Stacked bars: gross value by type · Lines: avg R/m² by category</div>
+      </div>
+    </div>
+
+    <div class="grid-2" style="margin-top:0;">
       <div class="card">
         <div class="card-header">🔔 Recent Alerts</div>
         <div class="card-body" id="alerts"></div>
@@ -200,6 +222,7 @@ tr.clickable { cursor: pointer; }
 <div class="overlay" id="overlay"></div>
 <div class="detail-panel" id="detailPanel"></div>
 
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 <script>
 const DATA_URL = 'data.json';
 let properties = [];
@@ -213,6 +236,7 @@ async function init() {
     properties = [];
   }
   buildStats();
+  buildCharts();
   buildAlerts();
   buildNews();
   buildTags();
@@ -248,31 +272,134 @@ function buildStats() {
 // === ALERTS ===
 function buildAlerts() {
   const alerts = [];
-  // Find recent sales
-  const recentSales = properties.filter(p => {
-    const d = new Date(p.lastSaleDate);
-    const threeMonths = new Date(); threeMonths.setMonth(threeMonths.getMonth()-3);
-    return d > threeMonths;
-  });
-  recentSales.forEach(p => alerts.push({
-    type: 'sale', badge: 'Sale', badgeClass: 'sale',
-    msg: `${p.address} sold for ${fmt(p.lastSalePrice)}`,
-    date: p.lastSaleDate
-  }));
-  // Valuation changes
-  properties.filter(p => p.currentValuation > p.lastSalePrice * 1.15).slice(0, 3).forEach(p => {
-    const inc = Math.round((p.currentValuation / p.lastSalePrice - 1) * 100);
+  // New sale registered (recent lastSaleDate)
+  const now = new Date();
+  const sixMonthsAgo = new Date(); sixMonthsAgo.setMonth(sixMonthsAgo.getMonth()-6);
+  properties.filter(p => new Date(p.lastSaleDate) > sixMonthsAgo).forEach(p => {
     alerts.push({
-      type: 'valuation', badge: 'Value', badgeClass: 'valuation',
-      msg: `${p.address} valuation up ${inc}% since purchase`,
-      date: p.valuationDate
+      type: 'sale', badge: 'Sale', badgeClass: 'sale',
+      msg: `${p.address} — new sale registered at ${fmt(p.lastSalePrice)}${p.lastSellingAgent ? ' · ' + p.lastSellingAgent : ''}`,
+      date: p.lastSaleDate
+    });
+  });
+  // New bond registered (assume bonds on recent purchases at ~70% of price)
+  properties.filter(p => new Date(p.lastSaleDate) > sixMonthsAgo).slice(0, 4).forEach(p => {
+    const bond = Math.round(p.lastSalePrice * 0.7);
+    alerts.push({
+      type: 'bond', badge: 'Bond', badgeClass: 'contact',
+      msg: `${p.address} — new bond registered of ${fmt(bond)}`,
+      date: p.lastSaleDate
+    });
+  });
+  // New rental listings
+  properties.filter(p => p.marketingStatus === 'To Rent').slice(0, 5).forEach(p => {
+    alerts.push({
+      type: 'listing', badge: 'To Rent', badgeClass: 'rental',
+      msg: `${p.address} — new ${p.type} to rent${p.currentAgent ? ' via ' + p.currentAgent : ''}`,
+      date: (p.timeOnMarket) ? '2026-10-20' : '2026-10-18'
+    });
+  });
+  // New sales listings
+  properties.filter(p => p.marketingStatus === 'For Sale').slice(0, 5).forEach(p => {
+    alerts.push({
+      type: 'listing', badge: 'For Sale', badgeClass: 'listing',
+      msg: `${p.address} — listed for sale at ${fmt(p.currentValuation)}${p.currentAgent ? ' · agent: ' + p.currentAgent : ''}${p.timeOnMarket ? ' · on market ' + p.timeOnMarket : ''}`,
+      date: '2026-10-' + String(10 + (p.id.charCodeAt(2) % 9)).padStart(2, '0')
+    });
+  });
+  // Agent change (currentAgent differs from lastSellingAgent)
+  properties.filter(p => p.currentAgent && p.currentAgent !== p.lastSellingAgent).slice(0, 4).forEach(p => {
+    alerts.push({
+      type: 'agent', badge: 'Agent', badgeClass: 'valuation',
+      msg: `${p.address} — marketing agent changed to ${p.currentAgent}${p.lastSellingAgent ? ' (was ' + p.lastSellingAgent + ')' : ''}`,
+      date: '2026-10-' + String(5 + (p.id.charCodeAt(2) % 12)).padStart(2, '0')
+    });
+  });
+  // Time on market category change (For Sale props with timeOnMarket)
+  properties.filter(p => p.marketingStatus === 'For Sale' && p.timeOnMarket).slice(0, 4).forEach(p => {
+    alerts.push({
+      type: 'tom', badge: 'Market', badgeClass: 'listing',
+      msg: `${p.address} — time on market now ${p.timeOnMarket}`,
+      date: '2026-10-' + String(3 + (p.id.charCodeAt(3) % 10)).padStart(2, '0')
     });
   });
 
   alerts.sort((a,b) => new Date(b.date) - new Date(a.date));
-  document.getElementById('alerts').innerHTML = alerts.slice(0, 8).map(a => `
+  document.getElementById('alerts').innerHTML = alerts.slice(0, 10).map(a => `
     <div class="alert-item"><span class="alert-badge ${a.badgeClass}">${a.badge}</span>${a.msg}<span class="alert-date">${fmtDate(a.date)}</span></div>
   `).join('') || '<p style="color:var(--muted);">No recent alerts</p>';
+}
+
+// === AREA TRENDS (dummy market data) ===
+const YEARS = ['2022', '2023', '2024', '2025', '2026 YTD'];
+const TREND = {
+  sales: {
+    'Sectional Title': [95, 108, 121, 132, 118],
+    'Freehold': [28, 31, 35, 39, 33],
+    'Vacant Land': [7, 9, 11, 12, 10]
+  },
+  medianPrice: [3.4, 3.7, 4.1, 4.6, 5.0],   // Rm
+  grossValue: {
+    'Sectional Title': [315, 362, 418, 472, 436],  // Rm
+    'Freehold': [188, 212, 246, 274, 248],
+    'Vacant Land': [34, 41, 48, 55, 47]
+  },
+  avgPerM2: {
+    'Sectional Title': [18500, 19700, 21500, 23800, 25600],   // R/m² (unit size)
+    'Freehold': [22100, 23600, 25300, 27800, 29500],          // R/m² (house)
+    'Vacant Land': [9800, 10400, 11200, 12600, 13400]         // R/m² (erf size)
+  }
+};
+
+function buildCharts() {
+  if (typeof Chart === 'undefined') return;
+  const gold = '#c9a84c', blue = '#0d6efd', green = '#198754', red = '#dc3545', teal = '#087990';
+
+  // Chart 1: sales count (stacked) + median price (line, secondary axis)
+  new Chart(document.getElementById('chartSales'), {
+    data: {
+      labels: YEARS,
+      datasets: [
+        { type: 'bar', label: 'Sectional Title', data: TREND.sales['Sectional Title'], backgroundColor: blue, stack: 'sales' },
+        { type: 'bar', label: 'Freehold', data: TREND.sales['Freehold'], backgroundColor: green, stack: 'sales' },
+        { type: 'bar', label: 'Vacant Land', data: TREND.sales['Vacant Land'], backgroundColor: gold, stack: 'sales' },
+        { type: 'line', label: 'Median price (Rm)', data: TREND.medianPrice, borderColor: red, backgroundColor: red, yAxisID: 'y2', tension: 0.3, pointRadius: 4 }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } },
+      scales: {
+        x: { stacked: true },
+        y: { stacked: true, title: { display: true, text: 'Number of sales' } },
+        y2: { position: 'right', title: { display: true, text: 'Median price (Rm)' }, grid: { drawOnChartArea: false } }
+      }
+    }
+  });
+
+  // Chart 2: gross value (stacked bars) + avg R/m² (lines, secondary axis)
+  new Chart(document.getElementById('chartGross'), {
+    data: {
+      labels: YEARS,
+      datasets: [
+        { type: 'bar', label: 'Sectional Title (Rm)', data: TREND.grossValue['Sectional Title'], backgroundColor: blue, stack: 'gross' },
+        { type: 'bar', label: 'Freehold (Rm)', data: TREND.grossValue['Freehold'], backgroundColor: green, stack: 'gross' },
+        { type: 'bar', label: 'Vacant Land (Rm)', data: TREND.grossValue['Vacant Land'], backgroundColor: gold, stack: 'gross' },
+        { type: 'line', label: 'R/m² Sectional', data: TREND.avgPerM2['Sectional Title'], borderColor: blue, yAxisID: 'y2', tension: 0.3, pointRadius: 3 },
+        { type: 'line', label: 'R/m² Freehold', data: TREND.avgPerM2['Freehold'], borderColor: green, yAxisID: 'y2', tension: 0.3, pointRadius: 3 },
+        { type: 'line', label: 'R/m² Vacant Land', data: TREND.avgPerM2['Vacant Land'], borderColor: red, yAxisID: 'y2', tension: 0.3, pointRadius: 3 }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } },
+      scales: {
+        x: { stacked: true },
+        y: { stacked: true, title: { display: true, text: 'Gross value (Rm)' } },
+        y2: { position: 'right', title: { display: true, text: 'Avg R/m²' }, grid: { drawOnChartArea: false } }
+      }
+    }
+  });
 }
 
 // === NEWS ===
