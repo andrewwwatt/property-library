@@ -108,6 +108,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     <select id="fType" onchange="applyFilters()">
       <option value="">All</option><option>House</option><option>Apartment</option><option>Vacant Land</option>
     </select></div>
+  <div class="fgroup"><label>Bedrooms</label>
+    <select id="fBeds" onchange="applyFilters()">
+      <option value="">All</option><option>1</option><option>2</option><option>3</option><option>4</option><option>&gt;= 5</option>
+    </select></div>
   <div class="fgroup"><label>Contact details</label>
     <select id="fContact" onchange="applyFilters()">
       <option value="">All</option><option>Email only</option><option>Mobile only</option>
@@ -115,6 +119,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
     </select></div>
   <div class="fgroup"><label>Last selling agent</label>
     <select id="fAgent" onchange="applyFilters()"><option value="">All</option></select></div>
+  <div class="fgroup"><label>Current marketing agent</label>
+    <select id="fCurAgent" onchange="applyFilters()"><option value="">All</option></select></div>
   <div class="fgroup"><label>Time on market</label>
     <select id="fTom" onchange="applyFilters()">
       <option value="">All</option><option>&lt; 1 month</option><option>2-3 months</option>
@@ -158,6 +164,11 @@ fetch('data.json').then(function(r){ return r.json(); }).then(function(data){
   var sel = document.getElementById('fAgent');
   agents.forEach(function(a){
     var o = document.createElement('option'); o.textContent = a; sel.appendChild(o);
+  });
+  var cur = [...new Set(properties.map(function(p){ return p.currentAgent; }).filter(Boolean))].sort();
+  var csel = document.getElementById('fCurAgent');
+  cur.forEach(function(a){
+    var o = document.createElement('option'); o.textContent = a; csel.appendChild(o);
   });
   buildMarkers();
   applyFilters();
@@ -216,6 +227,7 @@ function popupHtml(p){
   var tags = (p.tags||[]).map(function(t){ return '<span class="tag">'+t+'</span>'; }).join('');
   var contact = p.contactDetails && p.contactDetails !== 'None' ? '<div><b>Contact:</b> '+p.contactDetails+'</div>' : '<div><b>Contact:</b> None</div>';
   var agent = p.lastSellingAgent ? '<div><b>Last agent:</b> '+p.lastSellingAgent+'</div>' : '';
+  var curAgent = p.currentAgent ? '<div><b>Current marketing agent:</b> '+p.currentAgent+'</div>' : '';
   var propColor = p.propensityScore >= 60 ? '#dc3545' : p.propensityScore >= 30 ? '#fd7e14' : '#198754';
   var notes = p.notes ? '<div class="notes">📌 '+p.notes+'</div>' : '';
   var occ = p.occupantType ? '<div><b>Occupant:</b> '+p.occupantType+'</div>' : '';
@@ -223,7 +235,7 @@ function popupHtml(p){
   return '<h3>'+p.address+'</h3>'+st+
     '<div>'+p.type+' · '+detail+'</div>'+
     '<div>Valuation: '+fmt(p.currentValuation)+' · Last sale: '+fmt(p.lastSalePrice)+' ('+lastSoldBucket(p)+')</div>'+
-    occ+contact+agent+
+    occ+contact+agent+curAgent+
     '<div><b>Propensity to sell:</b> '+p.propensityScore+'/100<div class="prop-bar"><div class="fill" style="width:'+p.propensityScore+'%;background:'+propColor+'"></div></div></div>'+
     tags+notes+
     '<div class="frm">'+
@@ -248,7 +260,8 @@ function q(id){ var v = document.getElementById(id).value; return v === '' ? nul
 
 function applyFilters(){
   var occ = q('fOccupant'), mkt = q('fMarketing'), ls = q('fLastSold'), pr = q('fPrice'),
-      ty = q('fType'), ct = q('fContact'), ag = q('fAgent'), tm = q('fTom'),
+      ty = q('fType'), bd = q('fBeds'), ct = q('fContact'), ag = q('fAgent'),
+      ca = q('fCurAgent'), tm = q('fTom'),
       pp = q('fProp'), srch = (document.getElementById('fSearch').value||'').toLowerCase();
   var total = properties.length, shown = 0;
   properties.forEach(function(p){
@@ -258,8 +271,13 @@ function applyFilters(){
     if(ls && lastSoldBucket(p) !== ls) ok = false;
     if(pr && priceBucket(p) !== pr) ok = false;
     if(ty && p.type !== ty) ok = false;
+    if(bd){
+      if(bd === '>= 5') { if(!p.beds || p.beds < 5) ok = false; }
+      else if(p.beds !== parseInt(bd)) ok = false;
+    }
     if(ct && p.contactDetails !== ct) ok = false;
     if(ag && p.lastSellingAgent !== ag) ok = false;
+    if(ca && p.currentAgent !== ca) ok = false;
     if(tm && p.timeOnMarket !== tm) ok = false;
     if(pp){
       var lo = parseInt(pp.split('-')[0]), hi = parseInt(pp.split('-')[1]);

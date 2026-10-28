@@ -146,10 +146,12 @@ tr.clickable { cursor: pointer; }
     <div class="toolbar">
       <input type="text" class="search-box" id="searchInput" placeholder="Search by address, owner, notes...">
       <select class="filter-select" id="filterType"><option value="">All types</option><option value="House">House</option><option value="Apartment">Apartment</option><option value="Vacant Land">Vacant Land</option></select>
+      <select class="filter-select" id="filterBeds"><option value="">All beds</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value=">= 5">&gt;= 5</option></select>
       <select class="filter-select" id="filterOccupant"><option value="">All occupants</option><option value="Owner">Owner</option><option value="Renter">Renter</option><option value="Vacant">Vacant</option></select>
       <select class="filter-select" id="filterMarketing"><option value="">All marketing</option><option value="For Sale">For Sale</option><option value="To Rent">To Rent</option><option value="Not on Market">Not on Market</option></select>
       <select class="filter-select" id="filterPropensity"><option value="">All propensity</option><option value="0-19">0-19</option><option value="20-39">20-39</option><option value="40-59">40-59</option><option value="60-79">60-79</option><option value="80-100">80-100</option></select>
       <select class="filter-select" id="filterAgent"><option value="">All agents</option></select>
+      <select class="filter-select" id="filterCurAgent"><option value="">All current agents</option></select>
       <select class="filter-select" id="filterTag"><option value="">All tags</option></select>
       <span class="result-count" id="resultCount"></span>
     </div>
@@ -166,6 +168,7 @@ tr.clickable { cursor: pointer; }
             <th data-sort="marketingStatus">Marketing</th>
             <th data-sort="timeOnMarket">Time on Market</th>
             <th data-sort="lastSellingAgent">Last Agent</th>
+            <th data-sort="currentAgent">Current Agent</th>
             <th data-sort="contactDetails">Contact</th>
             <th data-sort="propensityScore">Propensity</th>
             <th>Tags</th>
@@ -297,6 +300,9 @@ function buildTags() {
   const agents = new Set(properties.map(p => p.lastSellingAgent).filter(Boolean));
   const aSel = document.getElementById('filterAgent');
   aSel.innerHTML = '<option value="">All agents</option>' + [...agents].sort().map(a => `<option value="${a}">${a}</option>`).join('');
+  const curAgents = new Set(properties.map(p => p.currentAgent).filter(Boolean));
+  const cSel = document.getElementById('filterCurAgent');
+  cSel.innerHTML = '<option value="">All current agents</option>' + [...curAgents].sort().map(a => `<option value="${a}">${a}</option>`).join('');
 }
 
 function renderTable() {
@@ -324,11 +330,12 @@ function renderTable() {
       <td>${mktBadge(p.marketingStatus)}</td>
       <td style="font-size:0.8rem;">${p.timeOnMarket || '—'}</td>
       <td style="font-size:0.8rem;">${p.lastSellingAgent || '—'}</td>
+      <td style="font-size:0.8rem;">${p.currentAgent || '—'}</td>
       <td style="font-size:0.8rem;">${p.contactDetails || '—'}</td>
       <td class="price">${propBadge(p.propensityScore)}</td>
       <td>${p.tags.map(t => `<span class="tag ${t.includes('potential') || t.includes('seller') ? 'potential' : ''} ${t.includes('premium') || t.includes('high') ? 'premium' : ''}">${t}</span>`).join('')}</td>
     </tr>
-  `).join('') || '<tr><td colspan="12" style="text-align:center;padding:40px;">No properties match your filters</td></tr>';
+  `).join('') || '<tr><td colspan="13" style="text-align:center;padding:40px;">No properties match your filters</td></tr>';
 }
 
 function occBadge(o){
@@ -350,18 +357,25 @@ function propBadge(s){
 function filterProperties() {
   const search = document.getElementById('searchInput').value.toLowerCase();
   const type = document.getElementById('filterType').value;
+  const beds = document.getElementById('filterBeds').value;
   const occupant = document.getElementById('filterOccupant').value;
   const marketing = document.getElementById('filterMarketing').value;
   const propensity = document.getElementById('filterPropensity').value;
   const agent = document.getElementById('filterAgent').value;
+  const curAgent = document.getElementById('filterCurAgent').value;
   const tag = document.getElementById('filterTag').value;
 
   return properties.filter(p => {
     if (search && !p.address.toLowerCase().includes(search) && !(p.notes||'').toLowerCase().includes(search) && !(p.ownerContact||'').toLowerCase().includes(search)) return false;
     if (type && p.type !== type) return false;
+    if (beds) {
+      if (beds === '>= 5') { if (!p.beds || p.beds < 5) return false; }
+      else if (p.beds !== parseInt(beds)) return false;
+    }
     if (occupant && p.occupantType !== occupant) return false;
     if (marketing && p.marketingStatus !== marketing) return false;
     if (agent && p.lastSellingAgent !== agent) return false;
+    if (curAgent && p.currentAgent !== curAgent) return false;
     if (propensity) {
       const lo = parseInt(propensity.split('-')[0]), hi = parseInt(propensity.split('-')[1]);
       if (p.propensityScore < lo || p.propensityScore > hi) return false;
@@ -372,7 +386,7 @@ function filterProperties() {
 }
 
 function setupSearch() {
-  ['searchInput','filterType','filterOccupant','filterMarketing','filterPropensity','filterAgent','filterTag'].forEach(id => {
+  ['searchInput','filterType','filterBeds','filterOccupant','filterMarketing','filterPropensity','filterAgent','filterCurAgent','filterTag'].forEach(id => {
     document.getElementById(id).addEventListener('input', renderTable);
     if (document.getElementById(id).tagName === 'SELECT') document.getElementById(id).addEventListener('change', renderTable);
   });

@@ -149,6 +149,9 @@ def build():
         p["timeOnMarket"] = time_on_market(p["marketingStatus"])
         p["propensityScore"] = propensity(p["occupantType"], p["marketingStatus"], p["timeOnMarket"], p["tags"])
 
+        # Current marketing agent — only when actively marketed (sale or rent)
+        p["currentAgent"] = agent() if p["marketingStatus"] in ("For Sale", "To Rent") else None
+
         # Notes from interesting tags
         interesting = [t for t in p["tags"] if t in NOTES]
         if interesting:
