@@ -2,108 +2,192 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Property Library — Map View</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
-*{margin:0;padding:0;box-sizing:border-box}
-body{font-family:Arial,Helvetica,sans-serif;background:#f5f3ef;color:#333}
-header{background:#1a1a1a;color:#fff;padding:0}
-.hi{max-width:1300px;margin:0 auto;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;gap:12px}
-.hi h1{font-size:18px;font-family:Georgia,serif;color:#c9a84c;font-style:italic;letter-spacing:-.01em}
-.hi .links a{color:#aaa;font-size:12px;text-transform:uppercase;letter-spacing:.06em;text-decoration:none;margin-left:14px}
-.hi .links a:hover{color:#fff}
-.wrap{max-width:1300px;margin:0 auto;padding:16px 20px 40px}
-.toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;background:#fff;border-radius:10px;padding:12px 16px;margin-bottom:14px;box-shadow:0 1px 4px rgba(0,0,0,.06)}
-.toolbar label{font-size:12px;color:#666;margin-right:4px}
-.toolbar select,.toolbar input[type=text]{padding:6px 10px;border:1px solid #ddd;border-radius:6px;font-size:13px}
-.chip{display:inline-block;background:#f0ece4;border-radius:16px;padding:5px 12px;font-size:12px;cursor:pointer;border:1px solid transparent;user-select:none}
-.chip.active{background:#c9a84c;color:#1a1a1a;font-weight:700}
-.legend{display:flex;gap:14px;font-size:12px;color:#555;align-items:center}
-.legend .dot{width:12px;height:12px;border-radius:50%;display:inline-block;margin-right:5px;vertical-align:-1px}
-#map{height:600px;border-radius:12px;border:1px solid #ddd;box-shadow:0 2px 8px rgba(0,0,0,.08);z-index:1}
-.count{font-size:12px;color:#888;margin-left:auto}
+:root {
+  --bg: #ffffff;
+  --surface: #f8f9fa;
+  --border: #e9ecef;
+  --text: #212529;
+  --muted: #6c757d;
+  --primary: #0d6efd;
+  --primary-light: #e7f1ff;
+  --success: #198754;
+  --warning: #ffc107;
+  --danger: #dc3545;
+  --radius: 8px;
+  --shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--surface); color: var(--text); line-height: 1.5; }
+.container { max-width: 1300px; margin: 0 auto; padding: 0 20px; }
+
+/* Header — matches index.html */
+.header { background: white; border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100; box-shadow: var(--shadow); }
+.header-inner { display: flex; align-items: center; justify-content: space-between; padding: 16px 0; }
+.logo { font-size: 1.25rem; font-weight: 700; color: var(--text); }
+.logo span { color: var(--primary); }
+.nav { display: flex; gap: 24px; }
+.nav a { text-decoration: none; color: var(--muted); font-size: 0.9rem; font-weight: 500; padding: 4px 0; border-bottom: 2px solid transparent; transition: all 0.2s; }
+.nav a:hover, .nav a.active { color: var(--primary); border-bottom-color: var(--primary); }
+
+/* Toolbar */
+.toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; background: white; border-radius: var(--radius); padding: 14px 16px; margin: 16px 0; box-shadow: var(--shadow); }
+.fgroup { display: flex; flex-direction: column; gap: 3px; }
+.fgroup label { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); font-weight: 600; }
+.fgroup select, .fgroup input { padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 0.82rem; background: white; color: var(--text); }
+.fgroup select:focus { outline: 2px solid var(--primary-light); border-color: var(--primary); }
+
+.legend { display: flex; gap: 14px; font-size: 0.75rem; color: var(--muted); align-items: center; }
+.legend .dot { width: 11px; height: 11px; border-radius: 50%; display: inline-block; margin-right: 4px; vertical-align: -1px; }
+.count { font-size: 0.8rem; color: var(--muted); margin-left: auto; font-weight: 600; }
+#map { height: 620px; border-radius: var(--radius); border: 1px solid var(--border); box-shadow: var(--shadow); z-index: 1; }
+
 /* Popup */
-.leaflet-popup-content{font-size:13px;line-height:1.5}
-.leaflet-popup-content h3{font-size:15px;margin-bottom:4px;color:#1a1a1a}
-.pp{color:#a00;font-size:11px}
-.prop{color:#3a7d44;font-size:11px}
-.tag{display:inline-block;background:#f0ece4;border-radius:10px;padding:1px 8px;font-size:10px;margin:2px 2px 0 0;color:#555}
-.notes{background:#faf8f4;border-left:3px solid #c9a84c;padding:6px 10px;margin-top:6px;font-size:12px;color:#444;border-radius:0 6px 6px 0}
+.leaflet-popup-content { font-size: 0.82rem; line-height: 1.5; }
+.leaflet-popup-content h3 { font-size: 0.95rem; margin-bottom: 4px; color: var(--text); }
+.leaflet-popup-content .status { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 0.68rem; font-weight: 600; text-transform: uppercase; margin-bottom: 4px; }
+.stat-sale { background: #f8d7da; color: var(--danger); }
+.stat-rent { background: #cff4fc; color: #087990; }
+.stat-off { background: var(--surface); color: var(--muted); }
+.tag { display: inline-block; background: var(--surface); border-radius: 10px; padding: 1px 8px; font-size: 0.68rem; margin: 2px 2px 0 0; color: var(--muted); }
+.notes { background: #faf8f4; border-left: 3px solid var(--warning); padding: 6px 10px; margin-top: 6px; font-size: 0.75rem; color: #666; border-radius: 0 6px 6px 0; }
+.prop-bar { height: 6px; background: var(--surface); border-radius: 3px; margin-top: 5px; overflow: hidden; }
+.prop-bar .fill { height: 100%; border-radius: 3px; }
+
 /* Edit form */
-.frm{margin-top:8px;border-top:1px solid #eee;padding-top:8px}
-.frm input,.frm textarea{width:100%;padding:5px 8px;border:1px solid #ddd;border-radius:5px;font-size:12px;margin-bottom:6px;font-family:inherit}
-.frm textarea{min-height:50px}
-.frm button{background:#1a1a1a;color:#fff;border:none;border-radius:5px;padding:5px 14px;font-size:12px;cursor:pointer}
-.frm button:hover{background:#333}
-.saved{color:#3a7d44;font-size:11px;display:none;margin-top:4px}
-.footer{text-align:center;color:#999;font-size:11px;padding:16px 0}
+.frm { margin-top: 8px; border-top: 1px solid var(--border); padding-top: 8px; }
+.frm input, .frm textarea { width: 100%; padding: 5px 8px; border: 1px solid var(--border); border-radius: 5px; font-size: 0.78rem; margin-bottom: 6px; font-family: inherit; }
+.frm textarea { min-height: 48px; }
+.frm button { background: var(--primary); color: white; border: none; border-radius: 5px; padding: 5px 14px; font-size: 0.78rem; cursor: pointer; }
+.frm button:hover { opacity: 0.88; }
+.saved { color: var(--success); font-size: 0.72rem; display: none; margin-top: 4px; }
+
+.footer { text-align: center; color: var(--muted); font-size: 0.72rem; padding: 16px 0; }
+@media (max-width: 700px) { .nav { gap: 12px; } }
 </style>
 </head>
 <body>
-<header><div class="hi">
-  <h1>📊 Property Library — Map View</h1>
-  <div class="links">
-    <a href="index.html">List View</a>
-    <a href="#" onclick="return false" style="color:#c9a84c;font-weight:700">Map View</a>
+
+<div class="header">
+  <div class="container header-inner">
+    <div class="logo">📚 Property <span>Library</span></div>
+    <div class="nav">
+      <a href="index.html">Dashboard</a>
+      <a href="index.html">Properties</a>
+      <a href="index.html">Campaigns</a>
+      <a href="map.html" class="active">Map View</a>
+    </div>
   </div>
-</div></header>
-<div class="wrap">
+</div>
+
+<div class="container">
 <div class="toolbar">
-  <label>Owner tenure:</label>
-  <select id="fTenure" onchange="applyFilters()">
-    <option value="">All</option>
-    <option value="Owner Occupied">Owner Occupied</option>
-    <option value="Tenant Occupied">Tenant Occupied</option>
-  </select>
-  <label>Status:</label>
-  <select id="fListed" onchange="applyFilters()">
-    <option value="">All</option>
-    <option value="false">Not on sale</option>
-    <option value="true">On sale</option>
-  </select>
-  <label>Search:</label>
-  <input type="text" id="fSearch" placeholder="Address, tag, note…" oninput="applyFilters()" style="width:180px">
-  <span class="legend">
-    <span><span class="dot" style="background:#3a7d44"></span>Owner occ.</span>
-    <span><span class="dot" style="background:#c08a3e"></span>Tenant</span>
-    <span><span class="dot" style="background:#c9a84c"></span>On sale</span>
-    <span><span class="dot" style="background:#999"></span>Filtered out</span>
-  </span>
+  <div class="fgroup"><label>Occupant</label>
+    <select id="fOccupant" onchange="applyFilters()">
+      <option value="">All</option><option>Owner</option><option>Renter</option><option>Vacant</option>
+    </select></div>
+  <div class="fgroup"><label>Marketing status</label>
+    <select id="fMarketing" onchange="applyFilters()">
+      <option value="">All</option><option>For Sale</option><option>To Rent</option><option>Not on Market</option>
+    </select></div>
+  <div class="fgroup"><label>Last sold</label>
+    <select id="fLastSold" onchange="applyFilters()">
+      <option value="">All</option><option>&lt; 1 year</option><option>1-3 years</option><option>3-5 years</option>
+      <option>5-10 years</option><option>&gt; 10 years</option>
+    </select></div>
+  <div class="fgroup"><label>Last sale price</label>
+    <select id="fPrice" onchange="applyFilters()">
+      <option value="">All</option><option>&lt; R1m</option><option>R1-3m</option><option>R3-5m</option>
+      <option>R5-10m</option><option>R10-15m</option><option>R15-20m</option><option>&gt; R20m</option>
+    </select></div>
+  <div class="fgroup"><label>Property type</label>
+    <select id="fType" onchange="applyFilters()">
+      <option value="">All</option><option>House</option><option>Apartment</option><option>Vacant Land</option>
+    </select></div>
+  <div class="fgroup"><label>Contact details</label>
+    <select id="fContact" onchange="applyFilters()">
+      <option value="">All</option><option>Email only</option><option>Mobile only</option>
+      <option>Email and Mobile</option><option>None</option>
+    </select></div>
+  <div class="fgroup"><label>Last selling agent</label>
+    <select id="fAgent" onchange="applyFilters()"><option value="">All</option></select></div>
+  <div class="fgroup"><label>Time on market</label>
+    <select id="fTom" onchange="applyFilters()">
+      <option value="">All</option><option>&lt; 1 month</option><option>2-3 months</option>
+      <option>3-6 months</option><option>6-12 months</option><option>&gt; 12 months</option>
+    </select></div>
+  <div class="fgroup"><label>Propensity to sell</label>
+    <select id="fProp" onchange="applyFilters()">
+      <option value="">All</option><option>0-19</option><option>20-39</option><option>40-59</option>
+      <option>60-79</option><option>80-100</option>
+    </select></div>
+  <div class="fgroup"><label>Search</label>
+    <input type="text" id="fSearch" placeholder="Address, tag, notes…" oninput="applyFilters()" style="width:150px"></div>
+  <div class="legend">
+    <span><span class="dot" style="background:#dc3545"></span>For Sale</span>
+    <span><span class="dot" style="background:#087990"></span>To Rent</span>
+    <span><span class="dot" style="background:#adb5bd"></span>Not on Market</span>
+  </div>
   <span class="count" id="count"></span>
 </div>
 <div id="map"></div>
-<p class="footer">Map data © OpenStreetMap contributors · Click a marker to view &amp; add intel · Data saves in this browser</p>
+<p class="footer">Map data © OpenStreetMap contributors · Click a marker to view &amp; add intel · Intel saves in this browser</p>
 </div>
 
 <script>
-var map = L.map('map').setView([-33.9196, 18.3870], 15);
+var map = L.map('map').setView([-33.9205, 18.3870], 15);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  attribution: '&copy; OpenStreetMap contributors',
-  maxZoom: 19
+  attribution: '&copy; OpenStreetMap contributors', maxZoom: 19
 }).addTo(map);
 
 var properties = [];
 var markers = {};
 
-// Load base data
 fetch('data.json').then(function(r){ return r.json(); }).then(function(data){
   properties = data;
-  // Merge proprietary intel from localStorage
   var intel = {};
   try { intel = JSON.parse(localStorage.getItem('pl-intel') || '{}'); } catch(e) {}
   properties.forEach(function(p){
-    if(intel[p.id]) { p.ownerContact = intel[p.id].ownerContact || p.ownerContact; p.notes = intel[p.id].notes || p.notes; p.intel = intel[p.id]; }
+    if(intel[p.id]) { p.ownerContact = intel[p.id].ownerContact || p.ownerContact; p.notes = intel[p.id].notes || p.notes; }
+  });
+  var agents = [...new Set(properties.map(function(p){ return p.lastSellingAgent; }))].sort();
+  var sel = document.getElementById('fAgent');
+  agents.forEach(function(a){
+    var o = document.createElement('option'); o.textContent = a; sel.appendChild(o);
   });
   buildMarkers();
   applyFilters();
 }).catch(function(e){ console.error('Failed to load data.json:', e); });
 
 function markerColor(p){
-  if(p.listed) return '#c9a84c';          // on sale
-  if(p.ownerStatus === 'Tenant Occupied') return '#c08a3e';
-  return '#3a7d44';                        // owner occupied
+  if(p.marketingStatus === 'For Sale') return '#dc3545';
+  if(p.marketingStatus === 'To Rent') return '#087990';
+  return '#adb5bd';
+}
+
+function lastSoldBucket(p){
+  var d = new Date(p.lastSaleDate); var now = new Date();
+  var yrs = (now - d) / (365.25 * 24 * 3600 * 1000);
+  if(yrs < 1) return '< 1 year';
+  if(yrs < 3) return '1-3 years';
+  if(yrs < 5) return '3-5 years';
+  if(yrs < 10) return '5-10 years';
+  return '> 10 years';
+}
+
+function priceBucket(p){
+  var v = p.lastSalePrice;
+  if(v < 1e6) return '< R1m';
+  if(v < 3e6) return 'R1-3m';
+  if(v < 5e6) return 'R3-5m';
+  if(v < 10e6) return 'R5-10m';
+  if(v < 15e6) return 'R10-15m';
+  if(v < 20e6) return 'R15-20m';
+  return '> R20m';
 }
 
 function buildMarkers(){
@@ -113,23 +197,31 @@ function buildMarkers(){
       color: '#fff', weight: 2
     }).addTo(map);
     m.bindPopup(popupHtml(p));
-    m.on('click', function(){ m.openPopup(); });
     markers[p.id] = m;
   });
 }
 
 function popupHtml(p){
+  var st;
+  if(p.marketingStatus === 'For Sale') st = '<span class="status stat-sale">For Sale' + (p.timeOnMarket ? ' · ' + p.timeOnMarket : '') + '</span>';
+  else if(p.marketingStatus === 'To Rent') st = '<span class="status stat-rent">To Rent</span>';
+  else st = '<span class="status stat-off">Not on Market</span>';
   var tags = (p.tags||[]).map(function(t){ return '<span class="tag">'+t+'</span>'; }).join('');
-  var sale = p.listed ? '<span class="pp">● ON SALE</span>' : '<span class="prop">● NOT LISTED</span>';
-  var contact = p.ownerContact ? '<div><b>Contact:</b> '+p.ownerContact+'</div>' : '';
+  var contact = p.contactDetails && p.contactDetails !== 'None' ? '<div><b>Contact:</b> '+p.contactDetails+'</div>' : '<div><b>Contact:</b> None</div>';
+  var agent = p.lastSellingAgent ? '<div><b>Last agent:</b> '+p.lastSellingAgent+'</div>' : '';
+  var propColor = p.propensityScore >= 60 ? '#dc3545' : p.propensityScore >= 30 ? '#fd7e14' : '#198754';
   var notes = p.notes ? '<div class="notes">📌 '+p.notes+'</div>' : '';
-  return '<h3>'+p.address+'</h3>'+
-    '<div>'+p.type+' · '+p.beds+' bed / '+p.baths+' bath · '+p.size+'m²</div>'+
-    '<div>Valuation: R'+(p.currentValuation/1000000).toFixed(1)+'m · Last sale: R'+(p.lastSalePrice/1000000).toFixed(1)+'m</div>'+
-    '<div>'+p.ownerStatus+' '+sale+'</div>'+tags+contact+notes+
+  var occ = p.occupantType ? '<div><b>Occupant:</b> '+p.occupantType+'</div>' : '';
+  var detail = p.type === 'Vacant Land' ? p.size+'m² plot' : p.beds+' bed / '+p.baths+' bath · '+p.size+'m²';
+  return '<h3>'+p.address+'</h3>'+st+
+    '<div>'+p.type+' · '+detail+'</div>'+
+    '<div>Valuation: '+fmt(p.currentValuation)+' · Last sale: '+fmt(p.lastSalePrice)+' ('+lastSoldBucket(p)+')</div>'+
+    occ+contact+agent+
+    '<div><b>Propensity to sell:</b> '+p.propensityScore+'/100<div class="prop-bar"><div class="fill" style="width:'+p.propensityScore+'%;background:'+propColor+'"></div></div></div>'+
+    tags+notes+
     '<div class="frm">'+
-    '<input id="ct-'+p.id+'" placeholder="Owner contact (phone / email)" value="'+(p.intel && p.intel.ownerContact ? p.intel.ownerContact : '')+'">'+
-    '<textarea id="nt-'+p.id+'" placeholder="Intel / notes (e.g. renovating, planning to sell…)">'+(p.intel && p.intel.notes ? p.intel.notes : '')+'</textarea>'+
+    '<input id="ct-'+p.id+'" placeholder="Owner contact (phone / email)" value="'+(p.ownerContact||'')+'">'+
+    '<textarea id="nt-'+p.id+'" placeholder="Intel / notes…">'+(p.notes||'')+'</textarea>'+
     '<button onclick="saveIntel(\''+p.id+'\')">Save intel</button>'+
     '<div class="saved" id="sv-'+p.id+'">✓ Saved to browser</div></div>';
 }
@@ -142,35 +234,41 @@ function saveIntel(id){
   localStorage.setItem('pl-intel', JSON.stringify(intel));
   document.getElementById('sv-'+id).style.display = 'block';
   setTimeout(function(){ document.getElementById('sv-'+id).style.display = 'none'; }, 2000);
-  // Update marker popup
   markers[id].setPopupContent(popupHtml(p));
 }
 
+function q(id){ var v = document.getElementById(id).value; return v === '' ? null : v; }
+
 function applyFilters(){
-  var tenure = document.getElementById('fTenure').value;
-  var listed = document.getElementById('fListed').value;
-  var q = document.getElementById('fSearch').value.toLowerCase();
-  var shown = 0, count = 0;
+  var occ = q('fOccupant'), mkt = q('fMarketing'), ls = q('fLastSold'), pr = q('fPrice'),
+      ty = q('fType'), ct = q('fContact'), ag = q('fAgent'), tm = q('fTom'),
+      pp = q('fProp'), srch = (document.getElementById('fSearch').value||'').toLowerCase();
+  var total = properties.length, shown = 0;
   properties.forEach(function(p){
-    count++;
     var ok = true;
-    if(tenure && p.ownerStatus !== tenure) ok = false;
-    if(listed !== '' && String(p.listed) !== listed) ok = false;
-    if(q){
-      var hay = (p.address+' '+(p.tags||[]).join(' ')+' '+(p.notes||'')).toLowerCase();
-      if(hay.indexOf(q) === -1) ok = false;
+    if(occ && p.occupantType !== occ) ok = false;
+    if(mkt && p.marketingStatus !== mkt) ok = false;
+    if(ls && lastSoldBucket(p) !== ls) ok = false;
+    if(pr && priceBucket(p) !== pr) ok = false;
+    if(ty && p.type !== ty) ok = false;
+    if(ct && p.contactDetails !== ct) ok = false;
+    if(ag && p.lastSellingAgent !== ag) ok = false;
+    if(tm && p.timeOnMarket !== tm) ok = false;
+    if(pp){
+      var lo = parseInt(pp.split('-')[0]), hi = parseInt(pp.split('-')[1]);
+      if(p.propensityScore < lo || p.propensityScore > hi) ok = false;
     }
-    if(ok){
-      shown++;
-      markers[p.id].setStyle({fillOpacity: 0.85, radius: 10});
-      markers[p.id].setTooltipContent ? '' : '';
-      markers[p.id].bindTooltip(p.address, {permanent:false});
-    } else {
-      markers[p.id].setStyle({fillOpacity: 0.15, radius: 6});
+    if(srch){
+      var hay = (p.address+' '+(p.tags||[]).join(' ')+' '+(p.notes||'')+' '+(p.lastSellingAgent||'')).toLowerCase();
+      if(hay.indexOf(srch) === -1) ok = false;
     }
+    if(ok){ shown++; markers[p.id].setStyle({fillOpacity: 0.85, radius: 10}); markers[p.id].bindTooltip(p.address); }
+    else { markers[p.id].setStyle({fillOpacity: 0.12, radius: 5}); markers[p.id].unbindTooltip(); }
   });
-  document.getElementById('count').textContent = shown + ' of ' + count + ' shown';
+  document.getElementById('count').textContent = shown + ' of ' + total + ' shown';
 }
+
+function fmt(n){ return 'R' + (n/1000000).toFixed(1) + 'm'; }
 </script>
 </body>
 </html>

@@ -82,6 +82,7 @@ tr.clickable { cursor: pointer; }
 .owner-badge { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
 .owner-badge.occupied { background: var(--success); }
 .owner-badge.tenanted { background: var(--warning); }
+.owner-badge.vacant { background: var(--danger); }
 
 /* Detail Panel */
 .detail-panel { display: none; position: fixed; top: 0; right: 0; width: 420px; height: 100vh; background: white; box-shadow: -4px 0 20px rgba(0,0,0,0.15); z-index: 200; overflow-y: auto; padding: 24px; }
@@ -144,8 +145,11 @@ tr.clickable { cursor: pointer; }
   <div class="page-section" id="page-properties">
     <div class="toolbar">
       <input type="text" class="search-box" id="searchInput" placeholder="Search by address, owner, notes...">
-      <select class="filter-select" id="filterType"><option value="">All types</option><option value="Apartment">Apartment</option><option value="House">House</option></select>
-      <select class="filter-select" id="filterStatus"><option value="">All status</option><option value="Owner Occupied">Owner Occupied</option><option value="Tenant Occupied">Tenant Occupied</option></select>
+      <select class="filter-select" id="filterType"><option value="">All types</option><option value="House">House</option><option value="Apartment">Apartment</option><option value="Vacant Land">Vacant Land</option></select>
+      <select class="filter-select" id="filterOccupant"><option value="">All occupants</option><option value="Owner">Owner</option><option value="Renter">Renter</option><option value="Vacant">Vacant</option></select>
+      <select class="filter-select" id="filterMarketing"><option value="">All marketing</option><option value="For Sale">For Sale</option><option value="To Rent">To Rent</option><option value="Not on Market">Not on Market</option></select>
+      <select class="filter-select" id="filterPropensity"><option value="">All propensity</option><option value="0-19">0-19</option><option value="20-39">20-39</option><option value="40-59">40-59</option><option value="60-79">60-79</option><option value="80-100">80-100</option></select>
+      <select class="filter-select" id="filterAgent"><option value="">All agents</option></select>
       <select class="filter-select" id="filterTag"><option value="">All tags</option></select>
       <span class="result-count" id="resultCount"></span>
     </div>
@@ -158,9 +162,13 @@ tr.clickable { cursor: pointer; }
             <th data-sort="beds">Beds</th>
             <th data-sort="lastSalePrice">Last Sale</th>
             <th data-sort="currentValuation">Valuation</th>
-            <th data-sort="ownerStatus">Status</th>
+            <th data-sort="occupantType">Occupant</th>
+            <th data-sort="marketingStatus">Marketing</th>
+            <th data-sort="timeOnMarket">Time on Market</th>
+            <th data-sort="lastSellingAgent">Last Agent</th>
+            <th data-sort="contactDetails">Contact</th>
+            <th data-sort="propensityScore">Propensity</th>
             <th>Tags</th>
-            <th data-sort="lastSaleDate">Activity</th>
           </tr>
         </thead>
         <tbody id="propertyTable"></tbody>
@@ -214,8 +222,9 @@ async function init() {
 function buildStats() {
   const total = properties.length;
   const avgVal = Math.round(properties.reduce((s,p) => s + p.currentValuation, 0) / total);
-  const ownerOcc = properties.filter(p => p.ownerStatus === 'Owner Occupied').length;
-  const potential = properties.filter(p => p.tags.includes('potential seller')).length;
+  const ownerOcc = properties.filter(p => p.occupantType === 'Owner').length;
+  const onMarket = properties.filter(p => p.marketingStatus === 'For Sale').length;
+  const highProp = properties.filter(p => p.propensityScore >= 60).length;
   const recentSales = properties.filter(p => {
     const d = new Date(p.lastSaleDate);
     const sixMonths = new Date(); sixMonths.setMonth(sixMonths.getMonth()-6);
@@ -226,7 +235,8 @@ function buildStats() {
     <div class="stat-card"><div class="label">Total Properties</div><div class="value">${total}</div></div>
     <div class="stat-card"><div class="label">Avg. Valuation</div><div class="value">${fmt(avgVal)}</div><div class="change up">▲ Sea Point avg ↑ 6.8% YoY</div></div>
     <div class="stat-card"><div class="label">Owner Occupied</div><div class="value">${ownerOcc}</div><div class="change">${Math.round(ownerOcc/total*100)}% of library</div></div>
-    <div class="stat-card"><div class="label">Potential Sellers</div><div class="value">${potential}</div><div class="change up">▲ ${potential} flagged</div></div>
+    <div class="stat-card"><div class="label">For Sale</div><div class="value">${onMarket}</div><div class="change">${properties.filter(p => p.occupantType === 'Vacant').length} vacant</div></div>
+    <div class="stat-card"><div class="label">High Propensity (60+)</div><div class="value">${highProp}</div><div class="change up">▲ Prospecting targets</div></div>
     <div class="stat-card"><div class="label">Recent Sales (6m)</div><div class="value">${recentSales}</div></div>
   `;
 }
@@ -283,6 +293,10 @@ function buildTags() {
   properties.forEach(p => p.tags.forEach(t => allTags.add(t)));
   const sel = document.getElementById('filterTag');
   sel.innerHTML = '<option value="">All tags</option>' + [...allTags].sort().map(t => `<option value="${t}">${t}</option>`).join('');
+  // Agents
+  const agents = new Set(properties.map(p => p.lastSellingAgent).filter(Boolean));
+  const aSel = document.getElementById('filterAgent');
+  aSel.innerHTML = '<option value="">All agents</option>' + [...agents].sort().map(a => `<option value="${a}">${a}</option>`).join('');
 }
 
 function renderTable() {
@@ -302,34 +316,63 @@ function renderTable() {
   document.getElementById('propertyTable').innerHTML = filtered.map(p => `
     <tr class="clickable" onclick="showDetail('${p.id}')">
       <td><strong>${p.address}</strong></td>
-      <td>${p.type}</td>
-      <td>${p.beds}</td>
+      <td>${p.type}${p.type === 'Vacant Land' ? '' : `<br><span style="font-size:0.75rem;color:var(--muted);">${p.beds} bed / ${p.baths} bath</span>`}</td>
+      <td>${p.beds || '—'}</td>
       <td class="price">${fmt(p.lastSalePrice)}<br><span style="font-size:0.75rem;color:var(--muted);">${fmtDate(p.lastSaleDate)}</span></td>
       <td class="price">${fmt(p.currentValuation)}</td>
-      <td><span class="owner-badge ${p.ownerStatus === 'Owner Occupied' ? 'occupied' : 'tenanted'}"></span>${p.ownerStatus}</td>
+      <td>${occBadge(p.occupantType)}${p.occupantType}</td>
+      <td>${mktBadge(p.marketingStatus)}</td>
+      <td style="font-size:0.8rem;">${p.timeOnMarket || '—'}</td>
+      <td style="font-size:0.8rem;">${p.lastSellingAgent || '—'}</td>
+      <td style="font-size:0.8rem;">${p.contactDetails || '—'}</td>
+      <td class="price">${propBadge(p.propensityScore)}</td>
       <td>${p.tags.map(t => `<span class="tag ${t.includes('potential') || t.includes('seller') ? 'potential' : ''} ${t.includes('premium') || t.includes('high') ? 'premium' : ''}">${t}</span>`).join('')}</td>
-      <td style="font-size:0.8rem;color:var(--muted);">${fmtDate(p.lastSaleDate)}</td>
     </tr>
-  `).join('') || '<tr><td colspan="8" style="text-align:center;padding:40px;">No properties match your filters</td></tr>';
+  `).join('') || '<tr><td colspan="12" style="text-align:center;padding:40px;">No properties match your filters</td></tr>';
+}
+
+function occBadge(o){
+  const cls = o === 'Owner' ? 'occupied' : (o === 'Renter' ? 'tenanted' : 'vacant');
+  return `<span class="owner-badge ${cls}"></span>`;
+}
+
+function mktBadge(m){
+  if(m === 'For Sale') return '<span class="tag" style="background:#f8d7da;color:#dc3545;font-weight:600;">For Sale</span>';
+  if(m === 'To Rent') return '<span class="tag" style="background:#cff4fc;color:#087990;font-weight:600;">To Rent</span>';
+  return '<span class="tag" style="color:var(--muted);">Not on Market</span>';
+}
+
+function propBadge(s){
+  const color = s >= 60 ? '#dc3545' : s >= 30 ? '#fd7e14' : '#198754';
+  return `<span style="color:${color};font-weight:700;">${s}</span><div style="height:5px;width:50px;background:var(--surface);border-radius:3px;"><div style="height:100%;width:${s}%;background:${color};border-radius:3px;"></div></div>`;
 }
 
 function filterProperties() {
   const search = document.getElementById('searchInput').value.toLowerCase();
   const type = document.getElementById('filterType').value;
-  const status = document.getElementById('filterStatus').value;
+  const occupant = document.getElementById('filterOccupant').value;
+  const marketing = document.getElementById('filterMarketing').value;
+  const propensity = document.getElementById('filterPropensity').value;
+  const agent = document.getElementById('filterAgent').value;
   const tag = document.getElementById('filterTag').value;
 
   return properties.filter(p => {
-    if (search && !p.address.toLowerCase().includes(search) && !p.notes.toLowerCase().includes(search) && !p.ownerContact.toLowerCase().includes(search)) return false;
+    if (search && !p.address.toLowerCase().includes(search) && !(p.notes||'').toLowerCase().includes(search) && !(p.ownerContact||'').toLowerCase().includes(search)) return false;
     if (type && p.type !== type) return false;
-    if (status && p.ownerStatus !== status) return false;
+    if (occupant && p.occupantType !== occupant) return false;
+    if (marketing && p.marketingStatus !== marketing) return false;
+    if (agent && p.lastSellingAgent !== agent) return false;
+    if (propensity) {
+      const lo = parseInt(propensity.split('-')[0]), hi = parseInt(propensity.split('-')[1]);
+      if (p.propensityScore < lo || p.propensityScore > hi) return false;
+    }
     if (tag && !p.tags.includes(tag)) return false;
     return true;
   });
 }
 
 function setupSearch() {
-  ['searchInput','filterType','filterStatus','filterTag'].forEach(id => {
+  ['searchInput','filterType','filterOccupant','filterMarketing','filterPropensity','filterAgent','filterTag'].forEach(id => {
     document.getElementById(id).addEventListener('input', renderTable);
     if (document.getElementById(id).tagName === 'SELECT') document.getElementById(id).addEventListener('change', renderTable);
   });
@@ -361,13 +404,18 @@ function showDetail(id) {
   document.getElementById('detailPanel').innerHTML = `
     <button class="close-btn" onclick="closeDetail()">×</button>
     <h2>${p.address}</h2>
-    <p class="address">${p.type} · ${p.beds} bed · ${p.baths} bath · ${p.size}m²</p>
+    <p class="address">${p.type} · ${p.beds || '—'} bed · ${p.baths || '—'} bath · ${p.size}m²</p>
     <div class="detail-grid">
       <div class="item"><div class="label">Last Sale Price</div><div class="val">${fmt(p.lastSalePrice)}</div></div>
       <div class="item"><div class="label">Sale Date</div><div class="val">${fmtDate(p.lastSaleDate)}</div></div>
       <div class="item"><div class="label">Current Valuation</div><div class="val">${fmt(p.currentValuation)}</div></div>
       <div class="item"><div class="label">Change Since Purchase</div><div class="val ${gain >= 0 ? 'price-up' : 'price-down'}">${gain >= 0 ? '+' : ''}${fmt(gain)} (${gainPct}%)</div></div>
-      <div class="item"><div class="label">Owner Status</div><div class="val">${p.ownerStatus}</div></div>
+      <div class="item"><div class="label">Occupant</div><div class="val">${p.occupantType || '—'}</div></div>
+      <div class="item"><div class="label">Marketing Status</div><div class="val">${p.marketingStatus || '—'}</div></div>
+      <div class="item"><div class="label">Time on Market</div><div class="val">${p.timeOnMarket || '—'}</div></div>
+      <div class="item"><div class="label">Last Selling Agent</div><div class="val">${p.lastSellingAgent || '—'}</div></div>
+      <div class="item"><div class="label">Contact Details</div><div class="val">${p.contactDetails || '—'}</div></div>
+      <div class="item"><div class="label">Propensity to Sell</div><div class="val">${p.propensityScore || 0}/100</div></div>
       <div class="item"><div class="label">Valuation Date</div><div class="val">${fmtDate(p.valuationDate)}</div></div>
     </div>
     <div style="margin-bottom:16px;">
@@ -376,13 +424,13 @@ function showDetail(id) {
     </div>
     <div style="margin-bottom:16px;">
       <div style="font-size:0.75rem;color:var(--muted);margin-bottom:4px;">CONTACT</div>
-      <div style="font-weight:500;">${p.ownerContact}</div>
+      <div style="font-weight:500;">${p.ownerContact || '—'}</div>
     </div>
     <div>
       <div style="font-size:0.75rem;color:var(--muted);margin-bottom:4px;">AGENT NOTES</div>
       <p style="font-size:0.9rem;line-height:1.6;background:var(--surface);padding:12px;border-radius:var(--radius);">${p.notes}</p>
     </div>
-    ${p.listed ? `<div style="margin-top:16px;padding:12px;background:#d1e7dd;border-radius:var(--radius);color:var(--success);font-weight:600;">🏷️ Listed — ${p.listingAgent || 'Agent unknown'}</div>` : ''}
+    ${p.marketingStatus === 'For Sale' ? `<div style="margin-top:16px;padding:12px;background:#d1e7dd;border-radius:var(--radius);color:var(--success);font-weight:600;">🏷️ On the market — ${p.timeOnMarket || 'time unknown'}</div>` : ''}
   `;
   document.getElementById('overlay').classList.add('open');
   document.getElementById('detailPanel').classList.add('open');
