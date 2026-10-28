@@ -193,12 +193,19 @@ function priceBucket(p){
 function buildMarkers(){
   properties.forEach(function(p){
     var m = L.circleMarker([p.lat, p.lng], {
-      radius: 10, fillColor: markerColor(p), fillOpacity: 0.85,
+      radius: markerRadius(p), fillColor: markerColor(p), fillOpacity: 0.85,
       color: '#fff', weight: 2
     }).addTo(map);
     m.bindPopup(popupHtml(p));
     markers[p.id] = m;
   });
+}
+
+function markerRadius(p){
+  var v = p.currentValuation;
+  if(v < 5e6) return 7;
+  if(v < 15e6) return 10;
+  return 14;
 }
 
 function popupHtml(p){
@@ -262,7 +269,7 @@ function applyFilters(){
       var hay = (p.address+' '+(p.tags||[]).join(' ')+' '+(p.notes||'')+' '+(p.lastSellingAgent||'')).toLowerCase();
       if(hay.indexOf(srch) === -1) ok = false;
     }
-    if(ok){ shown++; markers[p.id].setStyle({fillOpacity: 0.85, radius: 10}); markers[p.id].bindTooltip(p.address); }
+    if(ok){ shown++; markers[p.id].setStyle({fillOpacity: 0.85, radius: markerRadius(p)}); markers[p.id].bindTooltip(p.address); }
     else { markers[p.id].setStyle({fillOpacity: 0.12, radius: 5}); markers[p.id].unbindTooltip(); }
   });
   document.getElementById('count').textContent = shown + ' of ' + total + ' shown';
